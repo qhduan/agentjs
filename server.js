@@ -1,3 +1,6 @@
+// created by mail@qhduan.com http://qhduan.com
+// reference: http://tools.ietf.org/html/rfc1928
+
 "use strict";
 
 
@@ -34,25 +37,87 @@ function main () {
       data = code.decode(data);
 
       if (step == 0) {
+
+        /*
+        浏览器首先会发送一个版本请求信息
+        +----+----------+----------+
+        |VER | NMETHODS | METHODS  |
+        +----+----------+----------+
+        | 1  |    1     | 1 to 255 |
+        +----+----------+----------+
+        格式大概是这样的
+        VER是版本，必须是5
+        METHODS是n个字节(1<=n<=255)的一个字节数组
+        METHODS中具体有多少个字节是由第二个变量NMETHODS决定的
+        */
         var VER = data[0];
         var NMETHODS = data[1];
+
+        /*
+        METHODS中所有可能的选项为这些
+        我们只支持NO AUTHENTICATION REQUIRED，也就是要求METHODS中至少有一个0
+        o  X'00' NO AUTHENTICATION REQUIRED
+        o  X'01' GSSAPI
+        o  X'02' USERNAME/PASSWORD
+        o  X'03' to X'7F' IANA ASSIGNED
+        o  X'80' to X'FE' RESERVED FOR PRIVATE METHODS
+        o  X'FF' NO ACCEPTABLE METHODS
+        */
         var METHODS = [];
         console.log(index, "VER, NMETHODS", VER, NMETHODS)
+        var can = false;
         for (var i = 0; i < NMETHODS; i++) {
           METHODS[i] = data[2 + i];
+          if (METHODS[i] == 0) { //
+            can = true;
+          }
         }
         console.log(index, "METHODS", METHODS)
 
-        // 5 is the version
-        // 0 is we use NO AUTHENTICATION REQUIRED
-        connection.write(code.encode(new Buffer([5, 0])));
-        step++;
+        if (VER != 5 || can == false) {
+          // 如果版本不对，或者没写支持的METHOD
+          connection.write(code.encode(new Buffer([5, 0xff])));
+          connection.destroy();
+        } else {
+          // 返回[5, 0]，代表我们版本是5,支持0的NO AUTHENTICATION模式
+          connection.write(code.encode(new Buffer([5, 0])));
+          step++;
+        }
       } else if (step == 1) {
+        /*
+        如果浏览器觉得没问题，会发来第二次信息，这次信息就包括了浏览器想要访问的地址
+        格式为：
+        +----+-----+-------+------+----------+----------+
+        |VER | CMD |  RSV  | ATYP | DST.ADDR | DST.PORT |
+        +----+-----+-------+------+----------+----------+
+        | 1  |  1  | X'00' |  1   | Variable |    2     |
+        +----+-----+-------+------+----------+----------+
+        o  VER    protocol version: X'05' 版本，必须是 5
+        o  CMD    模式，我们只支持 1
+           o  CONNECT X'01'
+           o  BIND X'02'
+           o  UDP ASSOCIATE X'03'
+        o  RSV    RESERVED 保留字，没用，必须是 0
+        o  ATYP   address type of following address 地址类型，很重要
+           o  IP V4 address: X'01'
+           o  DOMAINNAME: X'03'
+           o  IP V6 address: X'04'
+        o  DST.ADDR       desired destination address 想要访问的地址
+        o  DST.PORT desired destination port in network octet order 想要访问远程的端口
+        */
         var VER = data[0];
         var CMD = data[1];
         var RSV = data[2];
         var ATYP = data[3];
         console.log(index, "VER, CMD, RSV, ATYP", VER, CMD, RSV, ATYP);
+
+        if (CMD != 1) {
+          // 我们只支持CMD是1,也就是CONNECT的类型
+          // 如果CMD不是1,则告诉浏览器我们不支持，数组中 7 代表  X'07' Command not supported
+          connection.write(code.encode(new Buffer([5, 7, 0, 1, 0, 0, 0, 0, 0, 0])));
+          connection.destroy();
+          return;
+        }
 
         var ADDRESS = null;
         var PORT = null;
@@ -60,7 +125,7 @@ function main () {
         if (ATYP == 1) { // ipv4
           ADDRESS = data[4] + "." + data[5] + "." + data[6] + "." + data[7];
           PORT = data[8] * 256 + data[9];
-        } else if (ATYP == 3) { // domain
+        } else if (ATYP == 3) { // 域名
           var length = data[4];
           var i;
           ADDRESS = "";
@@ -73,6 +138,7 @@ function main () {
             var r = a * 256 + b;
             return r.toString(16);
           }
+          // 把16个字节转换为IPv6的地址
           ADDRESS = C(data[4], data[5]) + "." +
                     C(data[6], data[7]) + "." +
                     C(data[8], data[9]) + "." +
@@ -88,14 +154,16 @@ function main () {
 
         step++;
 
+        // 因为我们取得了IPv4或者IPv6或者域名，所以我们要尝试连接服务器
         socket = net.createConnection(PORT, ADDRESS, function () {
 
-          // 5 is version
-          // 0 is REP, 0 is succeeded
-          // 0 is RSV
-          // 1 is ATYP, 1 is ipv4
-          // 0*4 is address
-          // 0*2 is port
+          // 如果成功我们就向浏览器返回一个数组
+          // 第一位的 5 是版本
+          // 第二位的 0 代表我们成功了
+          // 第三位的 0 是保留字
+          // 第四位的 1 代表地址是IPv4, 实际上在CONNECT模式下，这一位和下面六位没什么用
+          // 四个字节的地址，BIND模式才需要
+          // 两个字节的端口，BIND模式才需要
           connection.write(code.encode(new Buffer([5, 0, 0, 1, 0, 0, 0, 0, 0, 0])));
           connected = true;
 

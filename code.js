@@ -1,3 +1,5 @@
+// created by mail@qhduan.com http://qhduan.com
+// reference: http://tools.ietf.org/html/rfc1928
 
 var crypto = require("crypto");
 
