@@ -65,7 +65,7 @@ function main () {
           var i;
           ADDRESS = "";
           for (i = 0; i < length; i++) {
-            ADDRESS = ADDRESS + data[5 + i];
+            ADDRESS = ADDRESS + String.fromCharCode(data[5 + i]);
           }
           PORT = data[i] * Math.pow(2, 8) + data[i + 1];
         } else if (ATYP == 4) { // ipv6

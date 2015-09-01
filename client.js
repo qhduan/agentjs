@@ -5,7 +5,10 @@ var net = require("net");
 
 var code = require("./code");
 
-var SERVER_ADDRESS = "localhost";
+// var SERVER_ADDRESS = "localhost";
+// var SERVER_PORT = 7890;
+
+var SERVER_ADDRESS = "qhduan.com";
 var SERVER_PORT = 7890;
 
 var LOCAL_PORT = 1080;
