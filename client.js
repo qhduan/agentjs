@@ -17,14 +17,14 @@ var net = require("net");
 var code = require("./code");
 
 var SERVER_ADDRESS = "localhost";
-var SERVER_PORT = 7890;
-
-// var SERVER_ADDRESS = "qhduan.com";
 // var SERVER_PORT = 7890;
+
+//var SERVER_ADDRESS = "qhduan.com";
+var SERVER_PORT = 7890;
 
 var LOCAL_PORT = 1080;
 
-var TIMEOUT = 30 * 1000; // 60sec
+var TIMEOUT = 30 * 1000; // 30sec
 
 var browserIndex = 0;
 var browserList = {};
@@ -45,7 +45,11 @@ function main () {
 
     console.log("No.%d browser connected, total %d", index, Object.keys(browserList).length);
 
-    function FINISH () {
+    var closed = false;
+    function FINISH (reason) {
+      if (closed) {
+        return;
+      }
       if (browser) {
         browser.destroy();
         browser = null;
@@ -57,25 +61,26 @@ function main () {
       if (browserList.hasOwnProperty(index)) {
         delete browserList[index];
       }
-      console.log("No.%d browser disconnected, total %d", index, Object.keys(browserList).length);
+      reason = reason || "no reason";
+      console.log("No.%d browser disconnected, because %s, total %d [%s]", index, reason, Object.keys(browserList).length, (new Date().toISOString()));
+      closed = true;
     }
 
     browser.on("end", function () {
-      FINISH();
+      FINISH("browser end");
     });
 
     browser.on("close", function () {
-      FINISH();
+      FINISH("browser close");
     });
 
     browser.setTimeout(TIMEOUT, function () {
-      console.log("No.%d browser timeout", index);
-      FINISH();
+      FINISH("browser timeout");
     });
 
     browser.on("error", function () {
       console.error(index, "browser error", arguments);
-      FINISH();
+      FINISH("browser error");
     });
 
     browser.on("data", function (data) {
@@ -106,21 +111,20 @@ function main () {
     });
 
     server.on("end", function () {
-      FINISH();
+      FINISH("server end");
     });
 
     server.on("close", function () {
-      FINISH();
+      FINISH("server close");
     });
 
     server.setTimeout(TIMEOUT, function () {
-      console.log("No.%d server timeout", index);
-      FINISH();
+      FINISH("server timeout");
     });
 
     server.on("error", function () {
       console.error(index, "server error ", arguments);
-      FINISH();
+      FINISH("server error");
     });
 
   }).listen(LOCAL_PORT, function () {

@@ -17,7 +17,7 @@ var net = require("net");
 var code = require("./code");
 
 var PORT = 7890;
-var TIMEOUT = 30 * 1000; // 60sec
+var TIMEOUT = 30 * 1000; // 30sec
 
 var clientIndex = 0;
 var clientList = {};
@@ -40,7 +40,11 @@ function main () {
 
     console.log("No.%d Client connected, total %d", index, Object.keys(clientList).length);
 
-    function FINISH () {
+    var closed = false;
+    function FINISH (reason) {
+      if (closed) {
+        return;
+      }
       if (remote) {
         remote.destroy();
         remote = null;
@@ -52,24 +56,25 @@ function main () {
       if (clientList.hasOwnProperty(index)) {
         delete clientList[index];
       }
-      console.log("No.%d Client disconnected, total %d", index, Object.keys(clientList).length);
+      reason = reason || "no reason";
+      console.log("No.%d Client disconnected, because %s, total %d [%s]", index, reason, Object.keys(clientList).length, (new Date().toISOString()));
+      closed = true;
     }
 
     client.on("end", function () {
-      FINISH();
+      FINISH("client end");
     });
 
     client.on("close", function () {
-      FINISH();
+      FINISH("client close");
     });
 
     client.on("error", function () {
-      FINISH();
+      FINISH("client error");
     });
 
     client.setTimeout(TIMEOUT, function () {
-      console.log("No.%d client timeout", index);
-      FINISH();
+      FINISH("client timeout");
     });
 
     client.on("data", function (data) {
@@ -103,19 +108,23 @@ function main () {
         o  X'FF' NO ACCEPTABLE METHODS
         */
         var METHODS = [];
-        var can = false;
+        var methodSupported = false;
         for (var i = 0; i < NMETHODS; i++) {
           METHODS[i] = data[2 + i];
           if (METHODS[i] == 0) { //
-            can = true;
+            methodSupported = true;
           }
         }
         console.log("No.%d VER, NMETHODS, METHODS : ", index, VER, NMETHODS, METHODS);
 
-        if (VER != 5 || can == false) {
-          // 如果版本不对，或者没写支持的METHOD
+        if (VER != 5) {
+          // 如果版本不对
           client.write(code.encode(new Buffer([5, 0xff])));
-          client.destroy();
+          FINISH("invalid version");
+        } else if (methodSupported == false) {
+          // 或者没写支持的METHOD
+          client.write(code.encode(new Buffer([5, 0xff])));
+          FINISH("methods not supported");
         } else {
           // 向browser返回[5, 0]，代表我们版本是5,支持0的NO AUTHENTICATION模式
           client.write(code.encode(new Buffer([5, 0])));
@@ -153,7 +162,7 @@ function main () {
           // 我们只支持CMD是1,也就是CONNECT的类型
           // 如果CMD不是1,则告诉浏览器我们不支持，数组中 7 代表  X'07' Command not supported
           client.write(code.encode(new Buffer([5, 7, 0, 1, 0, 0, 0, 0, 0, 0])));
-          FINISH();
+          FINISH("CMD not supported");
           return;
         }
 
@@ -222,26 +231,25 @@ function main () {
         });
 
         remote.on("end", function () {
-          FINISH();
+          FINISH("remote end");
         });
 
         remote.on("close", function () {
-          FINISH();
+          FINISH("remote close");
         });
 
         remote.setTimeout(TIMEOUT, function () {
-          console.log("No.%d remote timeout", index);
-          FINISH();
+          FINISH("remote timeout");
         });
 
         remote.on("error", function () {
           if (remoteReady) {
             console.error(index, "cannot connect to remote server ", arguments);
-            FINISH();
+            FINISH("remote connect error");
           } else {
             // 第2位为 1 ，代表返回一个通用socks5错误
             client.write(code.encode(new Buffer([5, 1, 0, 1, 0, 0, 0, 0, 0, 0])));
-            FINISH();
+            FINISH("remote other error");
           }
         });
 
