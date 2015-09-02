@@ -20,6 +20,7 @@ function decode (data) {
   return Buffer.concat([r1, r2], r1.length + r2.length);
 }
 
+// 测试用的encode和decode
 function easy (data) {
   for (var i = 0; i < data.length; i++) {
     data[i] = data[i] ^ 0xAA;
@@ -30,5 +31,12 @@ function easy (data) {
 // exports.encode = encode;
 // exports.decode = decode;
 
-exports.encode = easy;
-exports.decode = easy;
+function time () {
+  var now = new Date();
+  return now.toISOString().substr(0, 19).replace("T", " ");
+}
+
+exports.time = time;
+
+exports.encode = encode;
+exports.decode = decode;

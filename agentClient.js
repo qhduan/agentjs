@@ -2,12 +2,32 @@
   created by mail@qhduan.com http://qhduan.com
   reference: http://tools.ietf.org/html/rfc1928
 
+  engine.io https://github.com/socketio/engine.io
+  engine.io-client https://github.com/socketio/engine.io-client
+
   route:
-    browser <==> client <==> server <==> remote
-    browser 是浏览器，或者说需要socks服务器的应用程序
+    browser <= net => client <= websocket(engine.io) => server <= net => remote
+
+    net 是指node.js的net库
+    websocket 使用engine.io提供的服务(客户端用engine.io-client)
+
+    browser 是浏览器，或者说需要socks服务的应用程序
     client 是agentjs的客户端
     server 是agentjs的服务器端
     remote 是browser所希望访问的远程服务器
+
+  nginx conf(proxy 80 port):
+
+  server{
+    server_name www.server.com;
+    location / {
+      proxy_pass http://localhost:7890;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+    }
+  }
+
 */
 
 "use strict";
@@ -16,10 +36,12 @@ var net = require("net");
 
 var engineClient = require("engine.io-client");
 
-var code = require("./code");
+var tool = require("./tool");
+
+//var SERVER_PORT = 80;
+//var SERVER_ADDRESS = "ws://a.qhduan.com:" + SERVER_PORT;
 
 var SERVER_PORT = 7890;
-//var SERVER_ADDRESS = "http://qhduan.com:" + SERVER_PORT;
 var SERVER_ADDRESS = "ws://localhost:" + SERVER_PORT;
 
 var LOCAL_PORT = 1080;
@@ -37,7 +59,7 @@ function toBrowser (browser, data) {
 
 function toServer (server, data) {
   if (server) {
-    server.send(code.encode(data));
+    server.send(tool.encode(data));
   }
 }
 
@@ -56,7 +78,7 @@ function main () {
       browser: browser
     };
 
-    console.log("No.%d browser connected, total %d", index, Object.keys(browserList).length);
+    console.log("No.%d browser connected, total %d [%s]", index, Object.keys(browserList).length, tool.time());
 
     function FINISH (reason) {
       if (finished == false) {
@@ -75,7 +97,7 @@ function main () {
           index,
           reason || "no reason",
           Object.keys(browserList).length,
-          (new Date().toISOString())
+          tool.time()
         );
         finished = true;
       }
@@ -107,12 +129,11 @@ function main () {
     });
 
     server = engineClient(SERVER_ADDRESS, {
-      reconnection: false,
-      timeout: TIMEOUT
+      transports: ["websocket"]
     });
 
     server.on("open", function () {
-      console.log("No.%d connected server", index);
+      console.log("No.%d connected server [%s]", index, tool.time());
       serverReady = true;
 
       if (browserList.hasOwnProperty(index)) {
@@ -132,7 +153,7 @@ function main () {
     });
 
     server.on("message", function (data) {
-      data = code.decode(data);
+      data = tool.decode(data);
       toBrowser(browser, data);
     });
 

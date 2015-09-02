@@ -1,13 +1,33 @@
 /*
-  created by mail@qhduan.com http://qhduan.com
-  reference: http://tools.ietf.org/html/rfc1928
+created by mail@qhduan.com http://qhduan.com
+reference: http://tools.ietf.org/html/rfc1928
 
-  route:
-    browser <==> client <==> server <==> remote
-    browser 是浏览器，或者说需要socks服务器的应用程序
-    client 是agentjs的客户端
-    server 是agentjs的服务器端
-    remote 是browser所希望访问的远程服务器
+engine.io https://github.com/socketio/engine.io
+engine.io-client https://github.com/socketio/engine.io-client
+
+route:
+  browser <= net => client <= websocket(engine.io) => server <= net => remote
+
+  net 是指node.js的net库
+  websocket 使用engine.io提供的服务(客户端用engine.io-client)
+
+  browser 是浏览器，或者说需要socks服务的应用程序
+  client 是agentjs的客户端
+  server 是agentjs的服务器端
+  remote 是browser所希望访问的远程服务器
+
+nginx conf(proxy 80 port):
+
+server{
+  server_name www.server.com;
+  location / {
+    proxy_pass http://localhost:7890;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+  }
+}
+
 */
 
 "use strict";
@@ -17,7 +37,7 @@ var net = require("net");
 
 var engine = require("engine.io");
 
-var code = require("./code");
+var tool = require("./tool");
 
 var PORT = 7890;
 var TIMEOUT = 30 * 1000; // 30sec
@@ -27,7 +47,7 @@ var clientList = {};
 
 function toClient (client, data) {
   if (client) {
-    client.send(code.encode(data));
+    client.send(tool.encode(data));
   }
 }
 
@@ -43,10 +63,12 @@ function main () {
   });
 
   httpServer.listen(PORT, function () {
-    console.log("Http Server is listening on %d [%s]", PORT, (new Date().toISOString()));
+    console.log("Http Server is listening on %d [%s]", PORT, tool.time());
   });
 
-  var server = engine.attach(httpServer);
+  var server = engine.attach(httpServer, {
+    transports: ["websocket"]
+  });
 
   server.on("connection", function (connection) {
     var client = connection;
@@ -62,7 +84,7 @@ function main () {
     };
     clientIndex++;
 
-    console.log("No.%d client connected", index);
+    console.log("No.%d client connected [%s]", index, tool.time());
 
     function FINISH (reason) {
       if (finished == false) {
@@ -81,7 +103,7 @@ function main () {
           index,
           reason || "no reason",
           Object.keys(clientList).length,
-          (new Date().toISOString())
+          tool.time()
         );
         finished = true;
       }
@@ -96,8 +118,8 @@ function main () {
     });
 
     client.on("message", function (data) {
-      data = code.decode(data);
-      
+      data = tool.decode(data);
+
       if (step == 0) {
         /*
         浏览器首先会发送一个版本请求信息
