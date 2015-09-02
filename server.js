@@ -1,43 +1,82 @@
-// created by mail@qhduan.com http://qhduan.com
-// reference: http://tools.ietf.org/html/rfc1928
+/*
+  created by mail@qhduan.com http://qhduan.com
+  reference: http://tools.ietf.org/html/rfc1928
+
+  route:
+    browser <==> client <==> server <==> remote
+    browser 是浏览器，或者说需要socks服务器的应用程序
+    client 是agentjs的客户端
+    server 是agentjs的服务器端
+    remote 是browser所希望访问的远程服务器
+*/
 
 "use strict";
-
 
 var net = require("net");
 
 var code = require("./code");
 
-var PORT = 7890
+var PORT = 7890;
+var TIMEOUT = 30 * 1000; // 60sec
 
 var clientIndex = 0;
+var clientList = {};
 
 function main () {
-  var server = net.createServer(function (connection) {
+  net.createServer(function (connection) {
 
     var index = clientIndex;
     clientIndex++;
 
-    connection.on("end", function () {
-      console.log(index, "client disconnected");
-    });
-
-    connection.on("error", function () {
-      connection.destroy();
-      socket.destroy();
-    });
-
     var step = 0;
     var cache = [];
-    var socket = null;
-    var connected = false;
+    var remote = null; // remote 是browser所希望访问的socket
+    var client = connection; // client 是客户端的socket
+    var remoteReady = false;
 
-    connection.on("data", function (data) {
+    clientList[index] = {
+      client: client
+    };
+
+    console.log("No.%d Client connected, total %d", index, Object.keys(clientList).length);
+
+    function FINISH () {
+      if (remote) {
+        remote.destroy();
+        remote = null;
+      }
+      if (client) {
+        client.destroy();
+        client = 0;
+      }
+      if (clientList.hasOwnProperty(index)) {
+        delete clientList[index];
+      }
+      console.log("No.%d Client disconnected, total %d", index, Object.keys(clientList).length);
+    }
+
+    client.on("end", function () {
+      FINISH();
+    });
+
+    client.on("close", function () {
+      FINISH();
+    });
+
+    client.on("error", function () {
+      FINISH();
+    });
+
+    client.setTimeout(TIMEOUT, function () {
+      console.log("No.%d client timeout", index);
+      FINISH();
+    });
+
+    client.on("data", function (data) {
 
       data = code.decode(data);
 
       if (step == 0) {
-
         /*
         浏览器首先会发送一个版本请求信息
         +----+----------+----------+
@@ -64,7 +103,6 @@ function main () {
         o  X'FF' NO ACCEPTABLE METHODS
         */
         var METHODS = [];
-        console.log(index, "VER, NMETHODS", VER, NMETHODS)
         var can = false;
         for (var i = 0; i < NMETHODS; i++) {
           METHODS[i] = data[2 + i];
@@ -72,15 +110,15 @@ function main () {
             can = true;
           }
         }
-        console.log(index, "METHODS", METHODS)
+        console.log("No.%d VER, NMETHODS, METHODS : ", index, VER, NMETHODS, METHODS);
 
         if (VER != 5 || can == false) {
           // 如果版本不对，或者没写支持的METHOD
-          connection.write(code.encode(new Buffer([5, 0xff])));
-          connection.destroy();
+          client.write(code.encode(new Buffer([5, 0xff])));
+          client.destroy();
         } else {
-          // 返回[5, 0]，代表我们版本是5,支持0的NO AUTHENTICATION模式
-          connection.write(code.encode(new Buffer([5, 0])));
+          // 向browser返回[5, 0]，代表我们版本是5,支持0的NO AUTHENTICATION模式
+          client.write(code.encode(new Buffer([5, 0])));
           step++;
         }
       } else if (step == 1) {
@@ -109,13 +147,13 @@ function main () {
         var CMD = data[1];
         var RSV = data[2];
         var ATYP = data[3];
-        console.log(index, "VER, CMD, RSV, ATYP", VER, CMD, RSV, ATYP);
+        console.log("No.%d VER, CMD, RSV, ATYP", index, VER, CMD, RSV, ATYP);
 
         if (CMD != 1) {
           // 我们只支持CMD是1,也就是CONNECT的类型
           // 如果CMD不是1,则告诉浏览器我们不支持，数组中 7 代表  X'07' Command not supported
-          connection.write(code.encode(new Buffer([5, 7, 0, 1, 0, 0, 0, 0, 0, 0])));
-          connection.destroy();
+          client.write(code.encode(new Buffer([5, 7, 0, 1, 0, 0, 0, 0, 0, 0])));
+          FINISH();
           return;
         }
 
@@ -126,9 +164,9 @@ function main () {
           ADDRESS = data[4] + "." + data[5] + "." + data[6] + "." + data[7];
           PORT = data[8] * 256 + data[9];
         } else if (ATYP == 3) { // 域名
-          var length = data[4];
-          var i;
+          var length = data[4]; // 域名长度
           ADDRESS = "";
+          var i;
           for (i = 0; i < length; i++) {
             ADDRESS = ADDRESS + String.fromCharCode(data[5 + i]);
           }
@@ -150,63 +188,73 @@ function main () {
           PORT = data[20] * 256 + data[21];
         }
 
-        console.log(index, "ADDRESS, PORT : ", ADDRESS, PORT);
+        console.log("No.%d ADDRESS:PORT : %s", index, ADDRESS + ":" + PORT);
 
         step++;
 
         // 因为我们取得了IPv4或者IPv6或者域名，所以我们要尝试连接服务器
-        socket = net.createConnection(PORT, ADDRESS, function () {
+        remote = net.createConnection(PORT, ADDRESS, function () {
 
           // 如果成功我们就向浏览器返回一个数组
-          // 第一位的 5 是版本
-          // 第二位的 0 代表我们成功了
-          // 第三位的 0 是保留字
-          // 第四位的 1 代表地址是IPv4, 实际上在CONNECT模式下，这一位和下面六位没什么用
-          // 四个字节的地址，BIND模式才需要
-          // 两个字节的端口，BIND模式才需要
-          connection.write(code.encode(new Buffer([5, 0, 0, 1, 0, 0, 0, 0, 0, 0])));
-          connected = true;
+          // 第1位的 5 是版本
+          // 第2位的 0 代表我们成功了
+          // 第3位的 0 是保留字
+          // 第4位的 1 代表地址是IPv4, 实际上在CONNECT模式下，这一位和下面六位没什么用
+          // 第5到第8位 四个字节的地址，BIND模式才需要
+          // 第9第10位 两个字节的端口，BIND模式才需要
+          client.write(code.encode(new Buffer([5, 0, 0, 1, 0, 0, 0, 0, 0, 0])));
+          remoteReady = true;
+
+          if (clientList.hasOwnProperty(index)) {
+            clientList[index].remote = remote;
+          }
 
           if (cache.length) {
             for (var i = 0; i < cache.length; i++) {
-              socket.write(cache[i]);
+              remote.write(cache[i]);
             }
           }
 
-          socket.on("data", function (data) {
-            connection.write(code.encode(data));
-          });
-
-          socket.on("end", function () {
-            connection.destroy();
-          });
-
         });
 
-        socket.on("error", function () {
-          if (connected) {
+        remote.on("data", function (data) {
+          client.write(code.encode(data));
+        });
+
+        remote.on("end", function () {
+          FINISH();
+        });
+
+        remote.on("close", function () {
+          FINISH();
+        });
+
+        remote.setTimeout(TIMEOUT, function () {
+          console.log("No.%d remote timeout", index);
+          FINISH();
+        });
+
+        remote.on("error", function () {
+          if (remoteReady) {
             console.error(index, "cannot connect to remote server ", arguments);
-            connection.destroy();
-            socket.destroy();
+            FINISH();
           } else {
-            connection.write(code.encode(new Buffer([5, 1, 0, 1, 0, 0, 0, 0, 0, 0])));
-            connection.destroy();
-            socket.destroy();
+            // 第2位为 1 ，代表返回一个通用socks5错误
+            client.write(code.encode(new Buffer([5, 1, 0, 1, 0, 0, 0, 0, 0, 0])));
+            FINISH();
           }
         });
 
       } else {
-        if (socket) {
-          socket.write(data);
+        if (remoteReady) {
+          remote.write(data);
         } else {
           cache.push(data);
         }
       }
     });
 
-  });
-
-  server.listen(PORT, function () {
+  }).listen(PORT, function () {
     console.log("Server is running on : ", PORT);
   });
 }

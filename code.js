@@ -27,5 +27,8 @@ function easy (data) {
   return data;
 }
 
+// exports.encode = encode;
+// exports.decode = decode;
+
 exports.encode = easy;
 exports.decode = easy;
