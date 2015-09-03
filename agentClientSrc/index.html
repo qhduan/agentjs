@@ -1,0 +1,87 @@
+<html>
+<head>
+  <title>Agentjs Client</title>
+  <style>
+    textarea {
+      width: 100%;
+      min-height: 300px;
+      resize: none;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Agentjs Client</h1>
+
+  <div>
+    <label>Server Address: </label>
+    <input id="address" type="text" value="ws://a.qhduan.com:80">
+  </div>
+  <div>
+    <label>Local Port: </label>
+    <input id="port" type="text" value="1080">
+  </div>
+  <div>
+    <button id="start">Start</button>
+  </div>
+
+  <div>
+    <textarea id="output"></textarea>
+  </div>
+
+<script>
+
+  /*
+  var tray = new gui.Tray({
+    icon: "icon.png"
+  });
+
+  var menu = new gui.Menu();
+  menu.append(new gui.MenuItem({
+    type: "checkbox",
+    label: "hello",
+    click: function () {
+      alert("hello");
+    }
+  }));
+
+  tray.menu = menu;
+  */
+
+  var domAddress = document.querySelector("#address");
+  var domPort = document.querySelector("#port");
+  var domStart = document.querySelector("#start");
+  var domOutput = document.querySelector("#output");
+
+  var util = require("util");
+
+  function updateLog () {
+    // console.log.apply(null, arguments);
+    var r = util.format.apply(null, arguments);
+    domOutput.value = r + "\n" + domOutput.value;
+  }
+
+  domStart.addEventListener("click", function () {
+    var address = domAddress.value;
+    var port = parseInt(domPort.value);
+
+    if (isNaN(port)) {
+      alert("invalid port");
+      return;
+    }
+
+    if (port <= 1024 || port > 65535) {
+      alert("invalid port range, 1024<port<65535");
+      return;
+    }
+
+    domStart.disabled = true;
+    domAddress.disabled = true;
+    domPort.disabled = true;
+
+    require("./agentClient").main(updateLog, address, port);
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,38 @@
+{
+  "name": "agentClient",
+  "description": "client for agentjs",
+  "version": "1.0.0",
+  "homepage": "https://github.com/qhduan/agentjs",
+  "author": {
+    "name": "qhduan",
+    "email": "mail@qhduan.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qhduan/agentjs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/qhduan/agentjs/issues"
+  },
+  "main": "agentClient.js",
+  "engines": {
+    "node": ">= 0.8.0"
+  },
+  "scripts": {
+    "test": "node agentClient"
+  },
+  "dependencies": {
+    "engine.io": "latest",
+    "engine.io-client": "latest"
+  },
+  "keywords": [
+  ],
+  "main": "index.html",
+  "window": {
+    "toolbar": false,
+    "resizable": false,
+    "fullscreen": false,
+    "width": 640,
+    "height": 480
+  }
+}

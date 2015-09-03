@@ -38,11 +38,11 @@ var engineClient = require("engine.io-client");
 
 var tool = require("./tool");
 
-//var SERVER_PORT = 80;
-//var SERVER_ADDRESS = "ws://a.qhduan.com:" + SERVER_PORT;
+var SERVER_PORT = 80;
+var SERVER_ADDRESS = "ws://a.qhduan.com:" + SERVER_PORT;
 
-var SERVER_PORT = 7890;
-var SERVER_ADDRESS = "ws://localhost:" + SERVER_PORT;
+//var SERVER_PORT = 7890;
+//var SERVER_ADDRESS = "ws://localhost:" + SERVER_PORT;
 
 var LOCAL_PORT = 1080;
 
