@@ -32,6 +32,7 @@
 
 "use strict";
 
+var zlib = require("zlib");
 var net = require("net");
 
 var engineClient = require("engine.io-client");
@@ -58,7 +59,8 @@ function toBrowser (browser, data) {
 
 function toServer (server, data) {
   if (server) {
-    server.send(tool.encode(data));
+    var ziped = zlib.deflateSync(data);
+    server.send(tool.encode(ziped));
   }
 }
 
@@ -156,6 +158,7 @@ function main (output, serverAddress, localPort) {
 
     server.on("message", function (data) {
       data = tool.decode(data);
+      data = zlib.inflateSync(data);
       toBrowser(browser, data);
     });
 

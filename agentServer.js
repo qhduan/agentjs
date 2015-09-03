@@ -32,6 +32,7 @@ server{
 
 "use strict";
 
+var zlib = require("zlib");
 var http = require("http");
 var net = require("net");
 
@@ -47,7 +48,8 @@ var clientList = {};
 
 function toClient (client, data) {
   if (client) {
-    client.send(tool.encode(data));
+    var ziped = zlib.deflateSync(data);
+    client.send(tool.encode(ziped));
   }
 }
 
@@ -118,7 +120,7 @@ function main () {
     });
 
     client.on("message", function (data) {
-      data = tool.decode(data);
+      data = zlib.inflateSync(tool.decode(data));
 
       if (step == 0) {
         /*

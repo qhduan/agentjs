@@ -1,3 +1,5 @@
-node_modules
+node_modules/
+
 nw-linux-64
+agentClient.nw
 
