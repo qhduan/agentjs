@@ -35,6 +35,7 @@ server{
 var zlib = require("zlib");
 var http = require("http");
 var net = require("net");
+var crypto = require("crypto");
 
 var engine = require("engine.io");
 
@@ -43,13 +44,16 @@ var tool = require("./tool");
 var PORT = 7890;
 var TIMEOUT = 30 * 1000; // 30sec
 
+var PASSWORD = "abc";
+PASSWORD = crypto.createHash('sha256').update(PASSWORD).digest();
+
 var clientIndex = 0;
 var clientList = {};
 
 function toClient (client, data) {
   if (client) {
     var ziped = zlib.deflateSync(data);
-    client.send(tool.encode(ziped));
+    client.send(tool.encode(PASSWORD, ziped));
   }
 }
 
@@ -120,7 +124,13 @@ function main () {
     });
 
     client.on("message", function (data) {
-      data = zlib.inflateSync(tool.decode(data));
+      try {
+        data = zlib.inflateSync(tool.decode(PASSWORD, data));
+      } catch (e) {
+        client.send("invalidpassword");
+        FINISH("client invalid password");
+        return;
+      }
 
       if (step == 0) {
         /*

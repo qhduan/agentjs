@@ -3,18 +3,18 @@
 
 var crypto = require("crypto");
 
-var CRYPTOKEY = crypto.createHash('sha256').update("&Y(Yfhsd89fsd98*)").digest();
-var CRYPTOIV = "w09r2w3foawoeuf9";
-
-function encode (data) {
-  var c = crypto.createCipheriv("aes-256-cbc", CRYPTOKEY, CRYPTOIV);
+function encode (key, data) {
+  var iv = new Buffer(16);
+  var c = crypto.createCipheriv("aes-256-cbc", key, iv);
   var r1 = c.update(data);
   var r2 = c.final();
-  return Buffer.concat([r1, r2], r1.length + r2.length);
+  return Buffer.concat([iv, r1, r2], iv.length + r1.length + r2.length);
 }
 
-function decode (data) {
-  var d = crypto.createDecipheriv("aes-256-cbc", CRYPTOKEY, CRYPTOIV);
+function decode (key, data) {
+  var iv = data.slice(0, 16);
+  data = data.slice(16);
+  var d = crypto.createDecipheriv("aes-256-cbc", key, iv);
   var r1 = d.update(data);
   var r2 = d.final();
   return Buffer.concat([r1, r2], r1.length + r2.length);

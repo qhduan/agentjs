@@ -34,17 +34,20 @@
 
 var zlib = require("zlib");
 var net = require("net");
+var crypto = require("crypto");
 
 var engineClient = require("engine.io-client");
 
 var tool = require("./tool");
 
-var SERVER_ADDRESS = null;
-
 //var SERVER_PORT = 7890;
 //var SERVER_ADDRESS = "ws://localhost:" + SERVER_PORT;
 
+
+var SERVER_ADDRESS = null;
 var LOCAL_PORT = null;
+var PASSWORD = null;
+var HTTP_SERVER = null;
 
 var TIMEOUT = 30 * 1000; // 30sec
 
@@ -60,15 +63,17 @@ function toBrowser (browser, data) {
 function toServer (server, data) {
   if (server) {
     var ziped = zlib.deflateSync(data);
-    server.send(tool.encode(ziped));
+    server.send(tool.encode(PASSWORD, ziped));
   }
 }
 
-function main (output, serverAddress, localPort) {
+function main (output, serverAddress, localPort, password) {
   SERVER_ADDRESS = serverAddress;
   LOCAL_PORT = localPort;
+  PASSWORD = password;
+  PASSWORD = crypto.createHash('sha256').update(PASSWORD).digest();
 
-  net.createServer(function (connection) {
+  HTTP_SERVER = net.createServer(function (connection) {
     var index = browserIndex;
     browserIndex++;
 
@@ -157,7 +162,12 @@ function main (output, serverAddress, localPort) {
     });
 
     server.on("message", function (data) {
-      data = tool.decode(data);
+      if (data == "invalidpassword") {
+        FINISH("invalid password");
+        return;
+      }
+
+      data = tool.decode(PASSWORD, data);
       data = zlib.inflateSync(data);
       toBrowser(browser, data);
     });
@@ -166,10 +176,18 @@ function main (output, serverAddress, localPort) {
       FINISH("server close");
     });
 
-  }).listen(LOCAL_PORT, function () {
+  });
+
+  HTTP_SERVER.listen(LOCAL_PORT, function () {
     output("Server address is, %s", SERVER_ADDRESS);
     output("Client is running on, socks5://localhost:%d", LOCAL_PORT);
   });
 }
 
 exports.main = main;
+exports.list = browserList;
+exports.stop = function () {
+  if (HTTP_SERVER) {
+    HTTP_SERVER.close();
+  }
+}

@@ -30,9 +30,11 @@
   "main": "index.html",
   "window": {
     "toolbar": false,
+    "frame": true,
     "resizable": false,
     "fullscreen": false,
     "width": 640,
-    "height": 480
+    "height": 480,
+    "icon": "icon.png"
   }
 }
