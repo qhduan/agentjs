@@ -32,7 +32,6 @@
 
 "use strict";
 
-var zlib = require("zlib");
 var net = require("net");
 var crypto = require("crypto");
 
@@ -62,8 +61,7 @@ function toBrowser (browser, data) {
 
 function toServer (server, data) {
   if (server) {
-    var ziped = zlib.deflateSync(data);
-    server.send(tool.encode(PASSWORD, ziped));
+    server.send(tool.encode(PASSWORD, data));
   }
 }
 
@@ -168,7 +166,6 @@ function main (output, serverAddress, localPort, password) {
       }
 
       data = tool.decode(PASSWORD, data);
-      data = zlib.inflateSync(data);
       toBrowser(browser, data);
     });
 

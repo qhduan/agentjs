@@ -32,7 +32,6 @@ server{
 
 "use strict";
 
-var zlib = require("zlib");
 var http = require("http");
 var net = require("net");
 var crypto = require("crypto");
@@ -52,8 +51,7 @@ var clientList = {};
 
 function toClient (client, data) {
   if (client) {
-    var ziped = zlib.deflateSync(data);
-    client.send(tool.encode(PASSWORD, ziped));
+    client.send(tool.encode(PASSWORD, data));
   }
 }
 
@@ -125,7 +123,7 @@ function main () {
 
     client.on("message", function (data) {
       try {
-        data = zlib.inflateSync(tool.decode(PASSWORD, data));
+        data = tool.decode(PASSWORD, data);
       } catch (e) {
         client.send("invalidpassword");
         FINISH("client invalid password");
