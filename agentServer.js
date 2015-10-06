@@ -41,10 +41,11 @@ var engine = require("engine.io");
 var tool = require("./tool");
 
 var PORT = 7890;
-var TIMEOUT = 30 * 1000; // 30sec
+var TIMEOUT = 300 * 1000; // 300sec
 
 var PASSWORD = "abc";
 PASSWORD = crypto.createHash('sha256').update(PASSWORD).digest();
+console.log(PASSWORD);
 
 var clientIndex = 0;
 var clientList = {};
@@ -125,6 +126,7 @@ function main () {
       try {
         data = tool.decode(PASSWORD, data);
       } catch (e) {
+        console.log(e);
         client.send("invalidpassword");
         FINISH("client invalid password");
         return;
@@ -143,6 +145,7 @@ function main () {
         METHODS是n个字节(1<=n<=255)的一个字节数组
         METHODS中具体有多少个字节是由第二个变量NMETHODS决定的
         */
+        console.log("data from client", data);
         var VER = data[0];
         var NMETHODS = data[1];
 

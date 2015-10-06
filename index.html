@@ -1,0 +1,120 @@
+<html>
+<head>
+  <title>Agentjs Client</title>
+  <style>
+    textarea {
+      width: 100%;
+      min-height: 300px;
+      resize: none;
+    }
+    button#start, button#stop {
+      width: 100px;
+      height: 40px;
+      font-size: 16px;
+    }
+    table, tbody, tr {
+      width: 100%;
+    }
+    #status {
+      padding-top: 5px;
+      padding-bottom: 10px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Agentjs Client</h1>
+
+  <table><tbody><tr>
+    <td>
+      <div>
+        <label>Server Address: </label>
+        <input id="address" type="text" value="ws://a.qhduan.com:80">
+      </div>
+      <div>
+        <label>Local Port: </label>
+        <input id="port" type="text" value="1080">
+      </div>
+      <div>
+        <label>Password: </label>
+        <input id="password" type="text" value="abc">
+      </div>
+    </td><!--left-->
+    <td>
+      <div>
+        <button id="start">Start</button>
+        <button disabled="true" id="stop">Stop</button>
+      </div>
+    </td><!--right-->
+  </tr></tbody></table>
+
+  <label id="status">stopped</label>
+
+  <div>
+    <textarea id="output"></textarea>
+  </div>
+
+<script>
+
+  var domAddress = document.querySelector("#address");
+  var domPort = document.querySelector("#port");
+  var domPassword = document.querySelector("#password");
+  var domStart = document.querySelector("#start");
+  var domStop = document.querySelector("#stop");
+  var domOutput = document.querySelector("#output");
+  var domStatus = document.querySelector("#status");
+
+  var agentClient = require("./agentClient");
+
+  var util = require("util");
+
+  function updateLog () {
+    var r = util.format.apply(null, arguments);
+    domOutput.value = r + "\n" + domOutput.value;
+
+    var status = Object.keys(agentClient.list).length + " connections";
+    if (r.indexOf("invalid password") != -1) {
+      status = "invalid password";
+    }
+    domStatus.textContent = status;
+  }
+
+  domStop.addEventListener("click", function () {
+    agentClient.stop();
+
+    domStart.disabled = false;
+    domStop.disabled = true;
+    domAddress.disabled = false;
+    domPort.disabled = false;
+    domPassword.disabled = false;
+    domStatus.textContent = "stopped";
+  });
+
+  domStart.addEventListener("click", function () {
+    var address = domAddress.value;
+    var port = parseInt(domPort.value);
+    var password = domPassword.value;
+
+    if (isNaN(port)) {
+      alert("invalid port");
+      return;
+    }
+
+    if (port <= 1024 || port > 65535) {
+      alert("invalid port range, 1024<port<65535");
+      return;
+    }
+
+    domStart.disabled = true;
+    domStop.disabled = false;
+    domAddress.disabled = true;
+    domPort.disabled = true;
+    domPassword.disabled = true;
+
+    agentClient.main(updateLog, address, port, password);
+  });
+</script>
+
+</body>
+</html>

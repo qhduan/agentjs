@@ -28,8 +28,10 @@ function easy (data) {
   return data;
 }
 
-// exports.encode = encode;
-// exports.decode = decode;
+function none (k, data) {
+  return data;
+}
+
 
 function time () {
   var now = new Date();
@@ -40,3 +42,5 @@ exports.time = time;
 
 exports.encode = encode;
 exports.decode = decode;
+//exports.encode = none;
+//exports.decode = none;

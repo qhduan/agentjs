@@ -16,9 +16,19 @@
   "engines": {
     "node": ">=0.12.0"
   },
-  "main": "agentServer.js",
-   "repository": {
+  "repository": {
     "type": "git",
     "url": "https://github.com/qhduan/agentjs.git"
+  },
+  "license": "GPL",
+  "main": "index.html",
+  "window": {
+    "toolbar": false,
+    "frame": true,
+    "resizable": false,
+    "fullscreen": false,
+    "width": 640,
+    "height": 480,
+    "icon": "icon.png"
   }
 }
