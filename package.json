@@ -10,8 +10,7 @@
     "agent"
   ],
   "dependencies": {
-    "engine.io": "latest",
-    "engine.io-client": "latest"
+    "ws": "latest"
   },
   "engines": {
     "node": ">=0.12.0"

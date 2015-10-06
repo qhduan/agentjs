@@ -35,14 +35,10 @@
 var net = require("net");
 var crypto = require("crypto");
 
-var engineClient = require("engine.io-client");
-
+var WebSocket = require("ws");
 var tool = require("./tool");
 
-//var SERVER_PORT = 7890;
-//var SERVER_ADDRESS = "ws://localhost:" + SERVER_PORT;
-
-
+//var SERVER_ADDRESS = "ws://localhost:7890";
 var SERVER_ADDRESS = null;
 var LOCAL_PORT = null;
 var PASSWORD = null;
@@ -61,7 +57,7 @@ function toBrowser (browser, data) {
 
 function toServer (server, data) {
   if (server) {
-    server.send(tool.encode(PASSWORD, data));
+    server.send(tool.encode(PASSWORD, data), { binary: true });
   }
 }
 
@@ -70,8 +66,6 @@ function main (output, serverAddress, localPort, password) {
   LOCAL_PORT = localPort;
   PASSWORD = password;
   PASSWORD = crypto.createHash('sha256').update(PASSWORD).digest();
-
-  console.log(PASSWORD);
 
   HTTP_SERVER = net.createServer(function (connection) {
     var index = browserIndex;
@@ -137,9 +131,7 @@ function main (output, serverAddress, localPort, password) {
       }
     });
 
-    server = engineClient(SERVER_ADDRESS, {
-      transports: ["websocket"]
-    });
+    server = new WebSocket(SERVER_ADDRESS);
 
     server.on("open", function () {
       output("No.%d connected server [%s]", index, tool.time());
@@ -161,7 +153,7 @@ function main (output, serverAddress, localPort, password) {
       FINISH("server error");
     });
 
-    server.on("message", function (data) {
+    server.on("message", function (data, flags) {
       if (data == "invalidpassword") {
         FINISH("invalid password");
         return;

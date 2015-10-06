@@ -21,9 +21,9 @@ function decode (key, data) {
 }
 
 // 测试用的encode和decode
-function easy (data) {
+function easy (k, data) {
   for (var i = 0; i < data.length; i++) {
-    data[i] = data[i] ^ 0xAA;
+    data[i] = data[i] ^ 0xE9;
   }
   return data;
 }
@@ -40,7 +40,7 @@ function time () {
 
 exports.time = time;
 
-exports.encode = encode;
-exports.decode = decode;
-//exports.encode = none;
-//exports.decode = none;
+// exports.encode = encode;
+// exports.decode = decode;
+exports.encode = easy;
+exports.decode = easy;

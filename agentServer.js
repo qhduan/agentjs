@@ -36,8 +36,7 @@ var http = require("http");
 var net = require("net");
 var crypto = require("crypto");
 
-var engine = require("engine.io");
-
+var WebSocketServer = require("ws").Server;
 var tool = require("./tool");
 
 var PORT = 7890;
@@ -45,14 +44,13 @@ var TIMEOUT = 300 * 1000; // 300sec
 
 var PASSWORD = "abc";
 PASSWORD = crypto.createHash('sha256').update(PASSWORD).digest();
-console.log(PASSWORD);
 
 var clientIndex = 0;
 var clientList = {};
 
 function toClient (client, data) {
   if (client) {
-    client.send(tool.encode(PASSWORD, data));
+    client.send(tool.encode(PASSWORD, data), { binary: true });
   }
 }
 
@@ -71,9 +69,9 @@ function main () {
     console.log("Http Server is listening on %d [%s]", PORT, tool.time());
   });
 
-  var server = engine.attach(httpServer, {
-    transports: ["websocket"]
-  });
+
+  // ws server
+  var server = new WebSocketServer({ server: httpServer });
 
   server.on("connection", function (connection) {
     var client = connection;
