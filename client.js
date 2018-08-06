@@ -7,7 +7,7 @@
     console.log.apply(console, arguments);
   }
 
-  var address = "ws://localhost:7890";
-  var port = 1080;
+  var address = "ws://win:7890";
+  var port = 2080;
   var password = "abc";
   agentClient.main(updateLog, address, port, password);

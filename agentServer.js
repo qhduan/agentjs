@@ -50,7 +50,11 @@ var clientList = {};
 
 function toClient (client, data) {
   if (client) {
-    client.send(tool.encode(PASSWORD, data), { binary: true });
+    try {
+      client.send(tool.encode(PASSWORD, data), { binary: true });
+    } catch (e) {
+      client.close()
+    }
   }
 }
 
