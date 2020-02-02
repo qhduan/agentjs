@@ -4,11 +4,11 @@
 ## BUILD
 
 ```
-docker build --no-cache -t qhduan/agentjs:latest .
+./build.sh
 ```
 
 ## RUN
 
 ```
-docker run --name agentjs --restart=always -d -e ADDRESS="ws://" -e PORT="2080" -p 2080:2080 -e PASSWORD="" qhduan/agentjs:latest
+docker run -d --name=agent -e HOST="ws://xxx:9002" -e PASSWORD=xxx -p 1080:1080 qhduan/agent
 ```
