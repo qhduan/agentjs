@@ -34,6 +34,7 @@
 
 var net = require("net");
 var crypto = require("crypto");
+var fs = require('fs');
 
 var WebSocket = require("ws");
 var tool = require("./tool");
@@ -49,25 +50,25 @@ var TIMEOUT = 300 * 1000; // 300sec
 var browserIndex = 0;
 var browserList = {};
 
-function toBrowser (browser, data) {
+function toBrowser(browser, data) {
   if (browser) {
     browser.write(data);
   }
 }
 
-function toServer (server, data) {
+function toServer(server, data) {
   if (server) {
     server.send(tool.encode(PASSWORD, data), { binary: true });
   }
 }
 
-function main (output, serverAddress, localPort, password) {
+function main(output, serverAddress, localPort, password) {
   SERVER_ADDRESS = serverAddress;
   LOCAL_PORT = localPort;
   PASSWORD = password;
   PASSWORD = crypto.createHash('sha256').update(PASSWORD).digest();
 
-  HTTP_SERVER = net.createServer(function (connection) {
+  HTTP_SERVER = net.createServer(connection => {
     var index = browserIndex;
     browserIndex++;
 
@@ -83,7 +84,7 @@ function main (output, serverAddress, localPort, password) {
 
     output("No.%d browser connected, total %d [%s]", index, Object.keys(browserList).length, tool.time());
 
-    function FINISH (reason) {
+    function FINISH(reason) {
       if (finished == false) {
         if (browser) {
           browser.destroy();
@@ -124,6 +125,15 @@ function main (output, serverAddress, localPort, password) {
     });
 
     browser.on("data", function (data) {
+      if (data.toString('utf-8').indexOf('GET /autoproxy.pac') == 0) {
+        let content = 'HTTP/1.1 200 OK\n'
+        content += 'Content-Type: application/x-ns-proxy-autoconfig\n'
+        content += '\n'
+        content += fs.readFileSync('./autoproxy.pac', {encoding: 'utf-8'})
+        browser.write(Buffer.from(content, 'utf-8'))
+        browser.end()
+        return
+      }
       if (serverReady) {
         toServer(server, data);
       } else {
