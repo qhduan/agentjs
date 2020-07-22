@@ -1,0 +1,4 @@
+
+FROM nwtgck/node-quic
+COPY . /playground
+CMD ["/playground/server_entry.sh"]

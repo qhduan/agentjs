@@ -1,4 +1,6 @@
 #!/bin/bash
 
-docker build -t qhduan/agent .
-docker push qhduan/agent
+set -e
+docker build -t qhduan/quic_agent_server -f Dockerfile_server .
+docker build -t qhduan/quic_agent_client -f Dockerfile_client .
+# docker push qhduan/agent
