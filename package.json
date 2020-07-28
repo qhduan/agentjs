@@ -10,6 +10,8 @@
     "agent"
   ],
   "dependencies": {
+    "dgram": "^1.0.1",
+    "node-kcp": "^1.0.11",
     "ws": "latest"
   },
   "engines": {
