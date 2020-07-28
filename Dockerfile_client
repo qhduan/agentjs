@@ -1,4 +1,4 @@
 
-FROM nwtgck/node-quic
+FROM qhduan/node-quic
 COPY . /playground
 CMD ["/playground/client_entry.sh"]

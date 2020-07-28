@@ -2,54 +2,22 @@
   created by mail@qhduan.com http://qhduan.com
   reference: http://tools.ietf.org/html/rfc1928
 
-  engine.io https://github.com/socketio/engine.io
-  engine.io-client https://github.com/socketio/engine.io-client
-
   route:
-    browser <= net => client <= websocket(engine.io) => server <= net => remote
-
-    net 是指node.js的net库
-    websocket 使用engine.io提供的服务(客户端用engine.io-client)
-
-    browser 是浏览器，或者说需要socks服务的应用程序
-    client 是agentjs的客户端
-    server 是agentjs的服务器端
-    remote 是browser所希望访问的远程服务器
-
-  nginx conf(proxy 80 port):
-
-  server{
-    server_name www.server.com;
-    location / {
-      proxy_pass http://localhost:7890;
-      proxy_http_version 1.1;
-      proxy_set_header Upgrade $http_upgrade;
-      proxy_set_header Connection "upgrade";
-    }
-  }
-
+    browser <= net => client <= quic => server <= net => remote
 */
 
 "use strict";
 
 const { createQuicSocket } = require('net');
 var net = require("net");
-// var crypto = require("crypto");
 var fs = require('fs');
 
-// var WebSocket = require("ws");
-var tool = require("./tool");
+// var tool = require("./tool");
 
-//var SERVER_ADDRESS = "ws://localhost:7890";
-// var SERVER_ADDRESS = null;
-// var LOCAL_PORT = null;
-// var PASSWORD = null;
-// var HTTP_SERVER = null;
+const kHttp3Alpn = 'h3-29';
+
 
 var TIMEOUT = 300 * 1000; // 300sec
-
-var browserIndex = 0;
-var browserList = {};
 
 function toBrowser(browser, data) {
     if (browser) {
@@ -59,27 +27,28 @@ function toBrowser(browser, data) {
 
 function toServer(server, data) {
     if (server) {
-        server.write(data);
+        // const batchSize = 128
+        // for (let i = 0; i < Math.ceil(data.length / batchSize); i++) {
+        //     server.write(data.slice(i * batchSize, (i + 1) * batchSize))
+        // }
+        server.write(data)
+        console.log('to server data %d', data.length)
     }
 }
 
-function getServer(host, port) {
+async function getServer(host, port) {
     const key  = fs.readFileSync('./ssl_certs/server.key');
     const cert = fs.readFileSync('./ssl_certs/server.crt');
     const ca   = fs.readFileSync('./ssl_certs/server.csr');
 
+    const kHttp3Alpn = 'h3-29';
+    const options = { key, cert, ca, alpn: kHttp3Alpn };
+
     const socket = createQuicSocket({
-        client: {
-            key,
-            cert,
-            ca,
-            requestCert: true,
-            alpn: 'hello',
-            servername: 'localhost'
-        }
+        client: options
     });
 
-    const req = socket.connect({
+    const req = await socket.connect({
         address: host,
         port,
     });
@@ -88,29 +57,18 @@ function getServer(host, port) {
 
 
 function main(output, serverHost, serverPort, localPort) {
-    // SERVER_ADDRESS = serverAddress;
-    // LOCAL_PORT = localPort;
-    // PASSWORD = password;
-    // PASSWORD = crypto.createHash('sha256').update(PASSWORD).digest();
 
-    const HTTP_SERVER = net.createServer(connection => {
-    
-        console.log('linked connections')
-        var index = browserIndex;
-        browserIndex++;
+    const HTTP_SERVER = net.createServer(async (connection) => {
 
         var serverReady = false;
         var cache = [];
         var server = null; // server 是服务器端的socket
         var stream = null;
+        var writeSteram = null;
         var browser = connection; // browser 是浏览器的socket
         var finished = false;
 
-        browserList[index] = {
-            browser: browser
-        };
-
-        output("No.%d browser connected, total %d [%s]", index, Object.keys(browserList).length, tool.time());
+        output("browser connected");
 
         function FINISH(reason) {
             if (finished == false) {
@@ -122,14 +80,8 @@ function main(output, serverHost, serverPort, localPort) {
                     // aserver.close();
                     server = null;
                 }
-                if (browserList.hasOwnProperty(index)) {
-                    delete browserList[index];
-                }
-                output("No.%d browser disconnected, because %s, total %d [%s]",
-                    index,
-                    reason || "no reason",
-                    Object.keys(browserList).length,
-                    tool.time()
+                output("browser disconnected, because %s",
+                    reason || "no reason"
                 );
                 finished = true;
             }
@@ -148,7 +100,7 @@ function main(output, serverHost, serverPort, localPort) {
         });
 
         browser.on("error", function (err) {
-            console.error("No.%d browser error ", index, err);
+            console.error("browser error %s", err);
             FINISH("browser error");
         });
 
@@ -163,31 +115,39 @@ function main(output, serverHost, serverPort, localPort) {
                 return
             }
             if (serverReady && stream) {
-                toServer(stream, data);
+                toServer(writeSteram, data);
             } else {
                 cache.push(data);
             }
         });
 
         // server = new WebSocket(SERVER_ADDRESS);
-        server = getServer(serverHost, serverPort)
+        server = await getServer(serverHost, serverPort)
 
-        server.on('secure', function () {
+        server.on('secure', async function () {
             if (!server) {
                 return
             }
-            stream = server.openStream();
 
-            output("No.%d connected server [%s]", index, tool.time());
+            stream = await server.openStream({
+                highWaterMark: 1 * 1024 * 1024
+            });
+
+            stream.submitInitialHeaders({
+                ':method': 'POST',
+                ':scheme': 'https',
+                ':authority': 'localhost',
+                ':path': '/',
+            })
+
+            writeSteram = stream; //.pushStream()
+
+            output("connected server");
             serverReady = true;
-
-            if (browserList.hasOwnProperty(index)) {
-                browserList[index].server = server;
-            }
 
             if (cache.length > 0) {
                 for (var i = 0; i < cache.length; i++) {
-                    toServer(stream, cache[i]);
+                    toServer(writeSteram, cache[i]);
                 }
             }
 
@@ -197,6 +157,7 @@ function main(output, serverHost, serverPort, localPort) {
             });
     
             stream.on("data", function (data) {
+                console.log('from server %d', data.length)
                 toBrowser(browser, data);
             });
     
@@ -217,14 +178,6 @@ function main(output, serverHost, serverPort, localPort) {
         output("Client is running on, socks5://localhost:%d", localPort);
     });
 }
-
-// exports.main = main;
-// exports.list = browserList;
-// exports.stop = function () {
-//     if (HTTP_SERVER) {
-//         HTTP_SERVER.close();
-//     }
-// }
 
 const serverHost = process.env.SERVER_HOST || 'localhost'
 const serverPort = Number.parseInt(process.env.SERVER_PORT) || 1234

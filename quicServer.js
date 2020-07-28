@@ -1,30 +1,9 @@
 /*
-created by mail@qhduan.com http://qhduan.com
-reference: http://tools.ietf.org/html/rfc1928
+  created by mail@qhduan.com http://qhduan.com
+  reference: http://tools.ietf.org/html/rfc1928
 
-route:
-  browser <= net => client <= websocket(engine.io) => server <= net => remote
-
-  net 是指node.js的net库
-  websocket 使用engine.io提供的服务(客户端用engine.io-client)
-
-  browser 是浏览器，或者说需要socks服务的应用程序
-  client 是agentjs的客户端
-  server 是agentjs的服务器端
-  remote 是browser所希望访问的远程服务器
-
-nginx conf(proxy 80 port):
-
-server{
-  server_name www.server.com;
-  location / {
-    proxy_pass http://localhost:7890;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-  }
-}
-
+  route:
+    browser <= net => client <= quic => server <= net => remote
 */
 
 "use strict";
@@ -32,6 +11,8 @@ server{
 const { createQuicSocket } = require('net');
 const fs = require('fs');
 const process = require('process');
+
+const kHttp3Alpn = 'h3-29';
 
 
 function createServer() {
@@ -44,7 +25,8 @@ function createServer() {
     // Tell the socket to operate as a server using the given
     // key and certificate to secure new connections, using
     // the fictional 'hello' application protocol.
-    server.listen({ key, cert, alpn: 'hello' });
+    const kHttp3Alpn = 'h3-29';
+    server.listen({ key, cert, alpn: kHttp3Alpn , highWaterMark: 100 * 1024 * 1024});
     server.on('listening', () => {
         console.log(`Server is listening on UDP/${port}`)
     });
@@ -52,92 +34,87 @@ function createServer() {
 }
 
 
-var http = require("http");
+// function createServer() {
+//     const key = fs.readFileSync('./ssl_certs/server.key');
+//     const cert = fs.readFileSync('./ssl_certs/server.crt');
+//     const ca   = fs.readFileSync('./ssl_certs/server.csr');
+//     const port = Number.parseInt(process.env.PORT) || 1234;
+//     // Create the QUIC UDP IPv4 socket bound to local IP port 1234
+//     const kHttp3Alpn = 'h3-29';
+//     const options = { key, cert, ca, alpn: kHttp3Alpn };
+//     const server = createQuicSocket({ endpoint: { port }, server: options});
+
+//     // Tell the socket to operate as a server using the given
+//     // key and certificate to secure new connections, using
+//     // the fictional 'hello' application protocol.
+//     server.listen();
+//     server.on('listening', () => {
+//         console.log(`Server is listening on UDP/${port}`)
+//     });
+//     return server
+// }
+
+
+
+// var http = require("http");
 var net = require("net");
 
 // var WebSocketServer = require("ws").Server;
-var tool = require("./tool");
+// var tool = require("./tool");
 
 // var PORT = 7890;
 var TIMEOUT = 300 * 1000; // 300sec
 
-var clientIndex = 0;
-var clientList = {};
-
 
 function toClient(session, stream, data) {
-    // if (client) {
-        try {
-            // client.send(data, { binary: true });
-            stream.write(data)
-        } catch (err) {
-            console.error(err)
-            session.close()
-        }
-    // }
+    try {
+        // const batchSize = 64
+        // for (let i = 0; i < Math.ceil(data.length / batchSize); i++) {
+        //     stream.write(data.slice(i * batchSize, (i + 1) * batchSize))
+        // }
+        stream.write(data)
+        console.log('to client data %d', data.length)
+    } catch (err) {
+        console.error(err)
+        session.close()
+    }
 }
 
 function toRemote(remote, data) {
-    if (remote)
-        remote.write(data);
+    if (remote) {
+        remote.write(data)
+    }
 }
 
 
 function main() {
 
-    // var httpServer = http.createServer(function (request, response) {
-    //     response.writeHead(200);
-    //     response.end("Hello World!");
-    // });
-
-    // httpServer.listen(PORT, function () {
-    //     console.log("Http Server is listening on %d [%s]", PORT, tool.time());
-    // });
-
-    // // ws server
-    // var server = new WebSocketServer({ server: httpServer });
-
     const server = createServer()
 
     server.on('session', session => {
+        console.log('new session')
         session.on('stream', stream => {
-            // if (stream.bidirectional) {
-            //     stream.write('Hello World');
-            //     stream.end();
-            //   }
-            //   stream.on('data', console.log);
-            //   stream.on('end', () => {});
+            console.log('new stream')
+
+            stream.submitInitialHeaders({ ':status': '200' })
+
+            var writeStream = stream; //.pushStream()
             var remote = null;
             var step = 0;
             var cache = [];
             var remoteReady = false;
             var finished = false;
 
-            var index = clientIndex;
-            clientList[index] = {
-                session, stream
-            };
-            clientIndex++;
-
-            console.log("No.%d client connected [%s]", index, tool.time());
+            console.log("client connected");
 
             function FINISH(reason) {
                 if (finished == false) {
                     if (remote) {
-                        remote.destroy();
+                        // remote.destroy();
                         remote = null;
                     }
-                    // if (client) {
-                    //     client = null;
-                    // }
-                    if (clientList.hasOwnProperty(index)) {
-                        delete clientList[index];
-                    }
-                    console.log("No.%d disconnected, because %s, total %d [%s]",
-                        index,
-                        reason || "no reason",
-                        Object.keys(clientList).length,
-                        tool.time()
+                    console.log("disconnected, because %s",
+                        reason || "no reason"
                     );
                     finished = true;
                 }
@@ -150,6 +127,7 @@ function main() {
             stream.on("end", () => FINISH("client close"));
 
             stream.on("data", (data) => {
+                console.log('from client %d', data.length)
 
                 if (step == 0) {
                     /*
@@ -186,19 +164,19 @@ function main() {
                             methodSupported = true;
                         }
                     }
-                    console.log("No.%d VER, NMETHODS, METHODS : ", index, VER, NMETHODS, METHODS);
+                    console.log("VER, NMETHODS, METHODS : ", VER, NMETHODS, METHODS);
 
                     if (VER != 5) {
                         // 如果版本不对
-                        toClient(session, stream, new Buffer([5, 0xff]));
+                        toClient(session, writeStream, new Buffer([5, 0xff]));
                         FINISH("invalid version");
                     } else if (methodSupported == false) {
                         // 或者没写支持的METHOD
-                        toClient(session, stream, new Buffer([5, 0xff]));
+                        toClient(session, writeStream, new Buffer([5, 0xff]));
                         FINISH("methods not supported");
                     } else {
                         // 向browser返回[5, 0]，代表我们版本是5，支持0的NO AUTHENTICATION模式
-                        toClient(session, stream, new Buffer([5, 0]));
+                        toClient(session, writeStream, new Buffer([5, 0]));
                         step++;
                     }
 
@@ -228,12 +206,12 @@ function main() {
                     var CMD = data[1];
                     var RSV = data[2];
                     var ATYP = data[3];
-                    console.log("No.%d VER, CMD, RSV, ATYP", index, VER, CMD, RSV, ATYP);
+                    console.log("VER, CMD, RSV, ATYP", VER, CMD, RSV, ATYP);
 
                     if (CMD != 1) {
                         // 我们只支持CMD是1,也就是CONNECT的类型
                         // 如果CMD不是1,则告诉浏览器我们不支持，数组中 7 代表  X'07' Command not supported
-                        toClient(session, stream, new Buffer([5, 7, 0, 1, 0, 0, 0, 0, 0, 0]));
+                        toClient(session, writeStream, new Buffer([5, 7, 0, 1, 0, 0, 0, 0, 0, 0]));
                         FINISH("CMD not supported");
                         return;
                     }
@@ -269,7 +247,7 @@ function main() {
                         PORT = data[20] * 256 + data[21];
                     }
 
-                    console.log("No.%d ADDRESS:PORT : %s", index, ADDRESS + ":" + PORT);
+                    console.log("ADDRESS:PORT : %s", ADDRESS + ":" + PORT);
 
                     step++;
 
@@ -283,12 +261,8 @@ function main() {
                         // 第4位的 1 代表地址是IPv4, 实际上在CONNECT模式下，这一位和下面六位没什么用
                         // 第5到第8位 四个字节的地址，BIND模式才需要
                         // 第9第10位 两个字节的端口，BIND模式才需要
-                        toClient(session, stream, new Buffer([5, 0, 0, 1, 0, 0, 0, 0, 0, 0]));
+                        toClient(session, writeStream, new Buffer([5, 0, 0, 1, 0, 0, 0, 0, 0, 0]));
                         remoteReady = true;
-
-                        if (clientList.hasOwnProperty(index)) {
-                            clientList[index].remote = remote;
-                        }
 
                         if (cache.length) {
                             for (var i = 0; i < cache.length; i++) {
@@ -299,7 +273,7 @@ function main() {
                     });
 
                     remote.on("data", function (data) {
-                        toClient(session, stream, data);
+                        toClient(session, writeStream, data);
                     });
 
                     remote.on("end", function () {
@@ -316,11 +290,11 @@ function main() {
 
                     remote.on("error", function () {
                         if (remoteReady) {
-                            console.error(index, "cannot connect to remote server ", arguments);
+                            console.error("cannot connect to remote server ", arguments);
                             FINISH("remote connect error");
                         } else {
                             // 第2位为 1 ，代表返回一个通用socks5错误
-                            toClient(session, stream, new Buffer([5, 1, 0, 1, 0, 0, 0, 0, 0, 0]));
+                            toClient(session, writeStream, new Buffer([5, 1, 0, 1, 0, 0, 0, 0, 0, 0]));
                             FINISH("remote other error");
                         }
                     });
