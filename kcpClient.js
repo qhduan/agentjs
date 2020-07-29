@@ -30,6 +30,7 @@ function main(output, serverHost, serverPort, localPort) {
 
         let cache = []
         let finished = false
+        let step = 0
 
         const client = dgram.createSocket('udp4')
         const interval = 10
@@ -83,10 +84,61 @@ function main(output, serverHost, serverPort, localPort) {
                 browser.end()
                 return
             }
-            // cache.push(data)
             console.log('from browser %d', data.length)
-            kcpobj.update(Date.now())
-            kcpobj.send(data)
+            if (step === 0) {
+                step++
+
+                /*
+                浏览器首先会发送一个版本请求信息
+                +----+----------+----------+
+                |VER | NMETHODS | METHODS  |
+                +----+----------+----------+
+                | 1  |    1     | 1 to 255 |
+                +----+----------+----------+
+                格式大概是这样的
+                VER是版本，必须是5
+                METHODS是n个字节(1<=n<=255)的一个字节数组
+                METHODS中具体有多少个字节是由第二个变量NMETHODS决定的
+                */
+                var VER = data[0];
+                var NMETHODS = data[1];
+
+                /*
+                METHODS中所有可能的选项为这些
+                我们只支持NO AUTHENTICATION REQUIRED，也就是要求METHODS中至少有一个0
+                o  X'00' NO AUTHENTICATION REQUIRED
+                o  X'01' GSSAPI
+                o  X'02' USERNAME/PASSWORD
+                o  X'03' to X'7F' IANA ASSIGNED
+                o  X'80' to X'FE' RESERVED FOR PRIVATE METHODS
+                o  X'FF' NO ACCEPTABLE METHODS
+                */
+                var METHODS = [];
+                var methodSupported = false;
+                for (var i = 0; i < NMETHODS; i++) {
+                    METHODS[i] = data[2 + i];
+                    if (METHODS[i] == 0) { //
+                        methodSupported = true;
+                    }
+                }
+                console.log("VER, NMETHODS, METHODS : ", VER, NMETHODS, METHODS);
+
+                if (VER != 5) {
+                    // 如果版本不对
+                    toBrowser(browser, new Buffer([5, 0xff]))
+                    // FINISH("invalid version");
+                } else if (methodSupported == false) {
+                    // 或者没写支持的METHOD
+                    toBrowser(browser, new Buffer([5, 0xff]));
+                    // FINISH("methods not supported");
+                } else {
+                    // 向browser返回[5, 0]，代表我们版本是5，支持0的NO AUTHENTICATION模式
+                    toBrowser(browser, new Buffer([5, 0]));
+                }
+            } else {
+                kcpobj.update(Date.now())
+                kcpobj.send(data)
+            }
         })
 
         client.on('error', err => {

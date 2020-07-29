@@ -257,7 +257,7 @@ function main() {
             clients[k] = kcpobj
             status[k] = {
                 remote: null,
-                step: 0,
+                step: 1,
                 cache: [],
                 remoteReady: false,
                 finished: false,
