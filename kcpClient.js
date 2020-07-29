@@ -16,70 +16,12 @@ const kcp = require('node-kcp')
 const dgram = require('dgram')
 const TIMEOUT = 30 * 1000
 
-// const client = dgram.createSocket('udp4')
-// const interval = 200
-// const kcpobj = new kcp.KCP(123, {address: '127.0.0.1', port: 1234})
-// kcpobj.nodelay(0, interval, 0, 0)
-// kcpobj.output((data, size, context) => {
-//     client.send(data, 0, size, context.port, context.address)
-// })
-
-// client.on('error', err => {
-//     console.error(`client error ${err.stack}`)
-//     client.close()
-// })
-
-// client.on('message', (msg, rinfo) => {
-//     kcpobj.input(msg)
-// })
-
-// setInterval(() => {
-//     kcpobj.update(Date.now())
-//     const recv = kcpobj.recv()
-//     if (recv) {
-//         console.log(`client recv ${recv}`)
-//         kcpobj.send('msgmsg')
-//     }
-// }, interval)
-
-// kcpobj.send('hello')
-
 
 function toBrowser(browser, data) {
     if (browser) {
         browser.write(data);
     }
 }
-
-// function toServer(server, data) {
-//     if (server) {
-//         // const batchSize = 128
-//         // for (let i = 0; i < Math.ceil(data.length / batchSize); i++) {
-//         //     server.write(data.slice(i * batchSize, (i + 1) * batchSize))
-//         // }
-//         server.write(data)
-//         console.log('to server data %d', data.length)
-//     }
-// }
-
-// async function getServer(host, port) {
-//     const key  = fs.readFileSync('./ssl_certs/server.key');
-//     const cert = fs.readFileSync('./ssl_certs/server.crt');
-//     const ca   = fs.readFileSync('./ssl_certs/server.csr');
-
-//     const kHttp3Alpn = 'h3-29';
-//     const options = { key, cert, ca, alpn: kHttp3Alpn };
-
-//     const socket = createQuicSocket({
-//         client: options
-//     });
-
-//     const req = await socket.connect({
-//         address: host,
-//         port,
-//     });
-//     return req
-// }
 
 
 function main(output, serverHost, serverPort, localPort) {
@@ -90,8 +32,9 @@ function main(output, serverHost, serverPort, localPort) {
         let finished = false
 
         const client = dgram.createSocket('udp4')
-        const interval = 1
+        const interval = 0
         const kcpobj = new kcp.KCP(123, {address: serverHost, port: serverPort})
+        console.log(serverHost, serverPort)
         kcpobj.nodelay(0, interval, 0, 0)
         kcpobj.output((data, size, context) => {
             client.send(data, 0, size, context.port, context.address)

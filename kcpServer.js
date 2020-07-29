@@ -19,19 +19,6 @@ function createServer() {
     return server
 }
 
-// function toClient(session, stream, data) {
-//     try {
-//         // const batchSize = 64
-//         // for (let i = 0; i < Math.ceil(data.length / batchSize); i++) {
-//         //     stream.write(data.slice(i * batchSize, (i + 1) * batchSize))
-//         // }
-//         stream.write(data)
-//         console.log('to client data %d', data.length)
-//     } catch (err) {
-//         console.error(err)
-//         session.close()
-//     }
-// }
 
 function toRemote(remote, data) {
     if (remote) {
@@ -242,7 +229,7 @@ function compose (data, kcpobj, status, k) {
 function main() {
 
     const server = createServer()
-    const interval = 1
+    const interval = 0
     const clients = {}
     const status = {}
 
