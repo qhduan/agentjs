@@ -130,6 +130,6 @@ function main(output, serverHost, serverPort, localPort) {
 }
 
 const serverHost = process.env.SERVER_HOST || 'localhost'
-const serverPort = Number.parseInt(process.env.SERVER_PORT) || 1234
+const serverPort = Number.parseInt(process.env.SERVER_PORT) || 7891
 const localPort = Number.parseInt(process.env.PORT) || 2080
 main(console.log, serverHost, serverPort, localPort)

@@ -8,6 +8,7 @@
 
 "use strict";
 
+const process = require('process')
 const net = require('net')
 const kcp = require('node-kcp')
 const dgram = require('dgram')
@@ -282,7 +283,8 @@ function main() {
         }, interval)
     })
 
-    server.bind(1234)
+    const serverPort = Number.parseInt(process.env.SERVER_PORT) || 7891
+    server.bind(serverPort)
 
 }
 
