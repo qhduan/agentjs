@@ -32,10 +32,11 @@ function main(output, serverHost, serverPort, localPort) {
         let finished = false
 
         const client = dgram.createSocket('udp4')
-        const interval = 0
+        const interval = 10
         const kcpobj = new kcp.KCP(123, {address: serverHost, port: serverPort})
         console.log(serverHost, serverPort)
-        kcpobj.nodelay(0, interval, 0, 0)
+        // kcpobj.nodelay(0, interval, 0, 0)
+        kcpobj.nodelay(1, interval, 2, 1)
         kcpobj.output((data, size, context) => {
             client.send(data, 0, size, context.port, context.address)
         })

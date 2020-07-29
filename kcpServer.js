@@ -229,7 +229,7 @@ function compose (data, kcpobj, status, k) {
 function main() {
 
     const server = createServer()
-    const interval = 0
+    const interval = 10
     const clients = {}
     const status = {}
 
@@ -250,7 +250,8 @@ function main() {
                 'port': rinfo.port
             }
             const kcpobj = new kcp.KCP(123, context)
-            kcpobj.nodelay(0, interval, 0, 0)
+            // kcpobj.nodelay(0, interval, 0, 0)
+            kcpobj.nodelay(1, interval, 2, 1)
             kcpobj.output(output)
             clients[k] = kcpobj
             status[k] = {
