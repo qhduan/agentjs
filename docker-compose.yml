@@ -1,0 +1,12 @@
+version: '3.3'
+services:
+    agent:
+        container_name: agent
+        environment:
+            - 'HOST=ws://xxx:xxx'
+            - PORT=1080
+            - PASSWORD=xxx
+        ports:
+            - '1080:1080'
+            - '8118:8118'
+        image: qhduan/agent
