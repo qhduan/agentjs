@@ -39,6 +39,8 @@ var fs = require('fs');
 var WebSocket = require("ws");
 var tool = require("./tool");
 
+const getip = require('./getip')
+
 //var SERVER_ADDRESS = "ws://localhost:7890";
 var SERVER_ADDRESS = null;
 var LOCAL_PORT = null;
@@ -63,6 +65,15 @@ function toServer(server, data) {
         server.send(tool.encode(PASSWORD, data), { binary: true });
     }
 }
+
+var MYIP = '127.0.0.1'
+
+setInterval(() => {
+getip().then(ip => {
+	console.log('get ip %s', ip)
+	MYIP = ip;
+})
+}, 1000 * 10)
 
 
 function main(output, serverAddress, localPort, password) {
@@ -133,7 +144,7 @@ function main(output, serverAddress, localPort, password) {
                 let content = 'HTTP/1.1 200 OK\n'
                 content += 'Content-Type: application/x-ns-proxy-autoconfig\n'
                 content += '\n'
-                content += fs.readFileSync('./autoproxy.pac', { encoding: 'utf-8' })
+                content += fs.readFileSync('./autoproxy.pac', { encoding: 'utf-8' }).replace('127.0.0.1', MYIP)
                 browser.write(Buffer.from(content, 'utf-8'))
                 browser.end()
                 return
