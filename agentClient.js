@@ -73,7 +73,7 @@ getip().then(ip => {
 	console.log('get ip %s', ip)
 	MYIP = ip;
 })
-}, 1000 * 10)
+}, 1000)
 
 
 function main(output, serverAddress, localPort, password) {

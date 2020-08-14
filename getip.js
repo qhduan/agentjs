@@ -5,7 +5,7 @@ const { exec } = require('child_process')
 function testip(name) {
 
 return new Promise((resolve) => {
-exec('ifconfig | grep inet | grep wlan | grep ' + name, (err, stdout) => {
+exec('ifconfig | grep -A 1 wlan | grep inet | grep ' + name, (err, stdout) => {
 if (!err) {
      var m = stdout.match(new RegExp(name + "[\.0-9]+"))
      if (m) {resolve(m[0])}
@@ -37,5 +37,5 @@ testip('192').then(ip => {
 }
 
 module.exports = getip
-// getip().then(name => {console.log("hello", name)})
+getip().then(name => {console.log("hello", name)})
 
