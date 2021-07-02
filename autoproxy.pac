@@ -4763,6 +4763,8 @@ var rules = [
             "elastic.co",
             "mediawiki.org",
             "pixiv.net",
+            "github.com",
+            "githubusercontent.com"
         ]
     ]
 ];
